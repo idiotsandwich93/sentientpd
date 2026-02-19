@@ -21,13 +21,27 @@ public class PrisonSentenceTracker
     private const int BASE_SENTENCE_MINUTES = 15;   // First-offence sentence
     private const int INCREMENT_MINUTES     = 5;    // Added for every additional arrest
     private const int MAX_SENTENCE_MINUTES  = 60;   // Hard cap so it never gets absurd
-    private const string SAVE_FILE = "Plugins\\LosSantosRED\\PrisonSentences.xml";
+    private const string DEFAULT_SAVE_FILE  = "Plugins\\LosSantosRED\\PrisonSentences.xml";
     // -------------------------------------------------------------------------
 
+    private readonly string _savePath;
+    private readonly Action<string> _log;
     private PrisonSentenceData _data;
 
+    /// <summary>
+    /// Production constructor — uses the default save path and Rage logging.
+    /// </summary>
     public PrisonSentenceTracker()
+        : this(DEFAULT_SAVE_FILE, msg => Rage.Game.LogTrivial(msg)) { }
+
+    /// <summary>
+    /// Testable constructor — caller supplies the save path and a log sink.
+    /// Pass a temp file path and a no-op action to avoid any GTA/Rage dependency.
+    /// </summary>
+    public PrisonSentenceTracker(string savePath, Action<string> log)
     {
+        _savePath = savePath;
+        _log      = log;
         Load();
     }
 
@@ -114,15 +128,16 @@ public class PrisonSentenceTracker
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(SAVE_FILE));
+            var dir = Path.GetDirectoryName(_savePath);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
             var serializer = new XmlSerializer(typeof(PrisonSentenceData));
-            using (var writer = new StreamWriter(SAVE_FILE))
+            using (var writer = new StreamWriter(_savePath))
                 serializer.Serialize(writer, _data);
         }
         catch (Exception ex)
         {
-            // Non-fatal: log but don't crash the plugin
-            Rage.Game.LogTrivial($"[PrisonSentenceTracker] Save failed: {ex.Message}");
+            _log($"[PrisonSentenceTracker] Save failed: {ex.Message}");
         }
     }
 
@@ -130,10 +145,10 @@ public class PrisonSentenceTracker
     {
         try
         {
-            if (File.Exists(SAVE_FILE))
+            if (File.Exists(_savePath))
             {
                 var serializer = new XmlSerializer(typeof(PrisonSentenceData));
-                using (var reader = new StreamReader(SAVE_FILE))
+                using (var reader = new StreamReader(_savePath))
                     _data = (PrisonSentenceData)serializer.Deserialize(reader);
             }
             else
