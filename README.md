@@ -1,11 +1,14 @@
 # sentientpd — Bolingbroke Real-Time Prison Sentences
 
-An add-on for [Los Santos RED](https://github.com/thatoneguy650/Los-Santos-RED) that enforces **real-world wait times** when a player is sent to Bolingbroke Penitentiary.
+An add-on for [Los Santos RED](https://github.com/thatoneguy650/Los-Santos-RED) that enforces **real-world wait times** when a player is sent to Bolingbroke Penitentiary, with a full gate transport sequence and prison outfit — ported from [marhex/prison-mod](https://github.com/marhex/prison-mod) (originally ScriptHookVDotNet) into LSR's RAGE Plugin Hook framework.
+
+> **Note:** Because SHVDN and RAGE Plugin Hook cannot run simultaneously, the prison-mod features are ported directly into LSR rather than loaded alongside it.
 
 ---
 
-## How it works
+## Features
 
+### Real-world prison sentences
 | Arrest # | Sentence length |
 |----------|----------------|
 | 1st      | 15 minutes      |
@@ -14,10 +17,25 @@ An add-on for [Los Santos RED](https://github.com/thatoneguy650/Los-Santos-RED) 
 | …        | +5 min each     |
 | (cap)    | 60 minutes max  |
 
-* The timer uses **real-world clock time**, so closing and reopening the game does **not** reset it.
-* While serving, the player is **frozen in place** at Bolingbroke and sees a live countdown.
-* On release a notification confirms the sentence is served and shows the arrest count.
-* All data persists to `Plugins\LosSantosRED\PrisonSentences.xml`.
+* Timer uses **real-world clock time** — closing the game does **not** reset it.
+* Sentence data persists to `Plugins\LosSantosRED\PrisonSentences.xml`.
+* On release: default clothing is restored and a notification shows the arrest count.
+
+### Gate transport (ported from marhex/prison-mod)
+When the player surrenders, instead of a direct teleport inside:
+1. Screen fades in at the **prison transport bus spawn** east of the outer gate.
+2. A prison guard warps into the bus and drives the player through **Gate 1** (outer) then **Gate 2** (inner), opening each gate as the bus approaches and closing it behind.
+3. Player exits the bus inside the prison yard.
+4. If the transport times out (>90 s per leg), a direct teleport fallback is used.
+
+### Prison outfit (ported from marhex/prison-mod)
+After the transport drops the player inside, the character is automatically changed into a prison jumpsuit:
+* **Michael** — orange top/bottoms (component 3: drawable 12, component 4: drawable 11)
+* **Franklin** — orange outfit (component 3: drawable 1, component 4: drawable 1)
+* **Trevor** — orange outfit (component 3: drawable 5, component 4: drawable 5)
+* FreeMode/custom models — unchanged (LSR handles clothing separately)
+
+Outfit is removed automatically when the sentence is served.
 
 ---
 
@@ -27,12 +45,14 @@ An add-on for [Los Santos RED](https://github.com/thatoneguy650/Los-Santos-RED) 
 |------|---------|
 | `PrisonSentenceData.cs` | Serialisable data model (arrest count, sentence start time, minutes, serving flag) |
 | `PrisonSentenceTracker.cs` | Core logic — `OnArrested()`, `TryRelease()`, `GetCountdownText()`, save/load |
+| `PrisonGateTransportActivity.cs` | Drives the player through the two Bolingbroke security gates in a prison bus |
+| `BolingbrookeOutfit.cs` | Applies/removes the prison jumpsuit based on player model |
 
 ---
 
 ## Integration into LSR
 
-Add both `.cs` files to the **Los Santos RED** Visual Studio project (same solution), then apply the following three changes to `lsr/Player/Respawning/Respawning.cs`:
+Add all four `.cs` files to the **Los Santos RED** Visual Studio project (same solution), then apply the following three changes to `lsr/Player/Respawning/Respawning.cs`:
 
 ### 1 — Add the tracker field (after the `HasIllegalItems` field)
 
